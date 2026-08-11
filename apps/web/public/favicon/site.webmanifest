@@ -1,0 +1,108 @@
+{
+    "name": "HyperLink",
+    "short_name": "HyperLink",
+    "icons": [
+        {
+            "src": "/favicon/favicon-16x16.png",
+            "sizes": "16x16",
+            "type": "image/png"
+        },
+        {
+            "src": "/favicon/favicon-32x32.png",
+            "sizes": "32x32",
+            "type": "image/png"
+        },
+        {
+            "src": "/favicon/android-chrome-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/favicon/android-chrome-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ],
+    "theme_color": "#0a0a0a",
+    "background_color": "#0a0a0a",
+    "start_url": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "share_target": {
+        "action": "/api/share-target",
+        "method": "POST",
+        "enctype": "multipart/form-data",
+        "params": {
+            "title": "title",
+            "text": "text",
+            "url": "url",
+            "files": [
+                {
+                    "name": "media",
+                    "accept": [
+                        "image/*",
+                        "video/*",
+                        "audio/*",
+                        "text/plain",
+                        "text/csv",
+                        "text/html",
+                        "application/pdf",
+                        "application/rtf",
+                        "application/msword",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "application/vnd.ms-excel",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "application/vnd.ms-powerpoint",
+                        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        "application/zip",
+                        "application/x-zip-compressed",
+                        "application/x-tar",
+                        "application/gzip",
+                        "application/octet-stream",
+                        "application/json",
+                        "application/xml",
+                        "*/*"
+                    ]
+                }
+            ]
+        }
+    },
+    "shortcuts": [
+        {
+            "name": "Send File",
+            "short_name": "Send",
+            "description": "Start a new file transfer",
+            "url": "/send",
+            "icons": [
+                {
+                    "src": "/favicon/android-chrome-192x192.png",
+                    "sizes": "192x192"
+                }
+            ]
+        },
+        {
+            "name": "Receive File",
+            "short_name": "Receive",
+            "description": "Receive a file from someone",
+            "url": "/receive",
+            "icons": [
+                {
+                    "src": "/favicon/android-chrome-192x192.png",
+                    "sizes": "192x192"
+                }
+            ]
+        },
+        {
+            "name": "History",
+            "short_name": "History",
+            "description": "View your transfer history",
+            "url": "/history",
+            "icons": [
+                {
+                    "src": "/favicon/android-chrome-192x192.png",
+                    "sizes": "192x192"
+                }
+            ]
+        }
+    ]
+}

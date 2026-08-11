@@ -1,0 +1,15 @@
+{
+  "name": "@repo/eslint-config",
+  "version": "1.01.000",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint-config-next": "^15.5.12",
+    "eslint-config-prettier": "^9.1.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1"
+  }
+}

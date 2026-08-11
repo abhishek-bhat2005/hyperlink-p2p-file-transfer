@@ -1,0 +1,177 @@
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+
+  /* Diagonal reveal animation from top-left */
+  @keyframes reveal-diagonal {
+    from {
+      clip-path: circle(0% at 0% 0%);
+      opacity: 0;
+    }
+
+    to {
+      clip-path: circle(150% at 0% 0%);
+      opacity: 1;
+    }
+  }
+
+  /* Particle floating animation */
+  @keyframes particle-float {
+    0% {
+      transform: translateY(0) translateX(0) rotate(0deg);
+      opacity: 1;
+    }
+
+    50% {
+      transform: translateY(-10px) translateX(5px) rotate(5deg);
+      opacity: 0.8;
+    }
+
+    100% {
+      transform: translateY(0) translateX(0) rotate(0deg);
+      opacity: 1;
+    }
+  }
+
+  /* Wave shimmer animation */
+  @keyframes wave-shimmer {
+    0% {
+      background-position: -100% 0;
+    }
+
+    100% {
+      background-position: 100% 0;
+    }
+  }
+
+  /* Progress glow animation */
+  @keyframes progress-glow {
+
+    0%,
+    100% {
+      box-shadow: 0 0 5px var(--primary), 0 0 10px var(--primary);
+    }
+
+    50% {
+      box-shadow: 0 0 10px var(--primary), 0 0 20px var(--primary);
+    }
+  }
+
+  /* Ripple Animation */
+  @keyframes ripple {
+    0% {
+      transform: scale(0);
+      opacity: 0.5;
+    }
+
+    100% {
+      transform: scale(4);
+      opacity: 0;
+    }
+  }
+
+  .animate-ripple {
+    animation: ripple 0.6s linear;
+  }
+
+
+  .animate-reveal {
+    animation: reveal-diagonal 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  @keyframes reveal-simple {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-reveal-simple {
+    animation: reveal-simple 0.4s ease-out forwards;
+  }
+
+  /* Blob Animation for Background Grid */
+  @keyframes blob {
+    0%, 100% {
+      transform: translate(0px, 0px) scale(1);
+    }
+    33% {
+      transform: translate(30px, -50px) scale(1.1);
+    }
+    66% {
+      transform: translate(-20px, 20px) scale(0.9);
+    }
+  }
+
+  .animate-blob {
+    animation: blob 10s infinite;
+  }
+
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+
+  .animation-delay-4000 {
+    animation-delay: 4s;
+  }
+}
+
+@layer base {
+  :root {
+    --background-dark: 18 18 18;
+    --surface-dark: 30 30 30;
+    --primary: 255 217 0;
+    --bauhaus-blue: 30 64 175;
+    --bauhaus-red: 220 38 38;
+  }
+
+  body {
+    font-family: "Space Grotesk", sans-serif;
+  }
+}
+
+@layer utilities {
+  .bauhaus-grid {
+    background-image: radial-gradient(#333 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  /* Custom Shapes for Bauhaus Theme */
+  .shape-triangle {
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+  }
+
+  /* Micro-interactions */
+  .btn-press {
+    @apply transition-transform active:scale-95 duration-100;
+  }
+
+  .hover-lift {
+    @apply transition-transform hover:-translate-y-1 duration-300;
+  }
+
+  .interactive-card {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5;
+  }
+}
+
+/* Accessibility: Respect user preference for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
