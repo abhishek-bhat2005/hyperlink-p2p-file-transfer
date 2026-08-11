@@ -226,6 +226,34 @@ describe("FileReceiver", () => {
       );
     });
 
+    it("serializes concurrent chunk writes so an earlier chunk is not skipped", async () => {
+      let releaseFirstWrite!: () => void;
+      const firstWriteBlocked = new Promise<void>((resolve) => {
+        releaseFirstWrite = resolve;
+      });
+
+      mockAddChunk.mockImplementationOnce(async () => firstWriteBlocked);
+
+      const first = receiver.handleChunk(createChunkMessage(0));
+      const second = receiver.handleChunk(createChunkMessage(1));
+
+      await vi.waitFor(() => expect(mockAddChunk).toHaveBeenCalledTimes(1));
+      expect(conn.send).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: "chunk-ack", payload: { chunkIndex: 1 } })
+      );
+
+      releaseFirstWrite();
+      await Promise.all([first, second]);
+
+      expect(mockAddChunk).toHaveBeenCalledTimes(2);
+      expect(conn.send).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "chunk-ack", payload: { chunkIndex: 0 } })
+      );
+      expect(conn.send).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "chunk-ack", payload: { chunkIndex: 1 } })
+      );
+    });
+
     it("calls progress callback on each chunk", async () => {
       const progressCb = vi.fn();
       receiver.onProgress(progressCb);

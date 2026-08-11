@@ -36,6 +36,10 @@ export class FileReceiver {
   private resumeFromChunk: number = 0; // For crash recovery
   private writableStream?: FileSystemWritableFileStream;
   private fileHandle?: FileSystemFileHandle;
+  // PeerJS emits data events in order, but async decrypt/IDB writes can finish out
+  // of order. Keep processing serialized so resumeFromChunk never skips an
+  // earlier chunk that is still being written.
+  private chunkQueue: Promise<void> = Promise.resolve();
 
   // Encryption state
   private isEncrypted: boolean = false;
@@ -118,6 +122,7 @@ export class FileReceiver {
     this.receivedChunks = 0;
     this.bytesReceived = 0;
     this.resumeFromChunk = 0;
+    this.chunkQueue = Promise.resolve();
 
     // Check IDB for previously received chunks (crash recovery)
     this.onLog?.("[DB] Scanning IndexedDB for partial transfer data...");
@@ -177,6 +182,16 @@ export class FileReceiver {
    * Handle incoming chunk - store it and send ACK
    */
   async handleChunk(message: PeerMessage<ChunkPayload>): Promise<void> {
+    const queued = this.chunkQueue.then(() => this.processChunk(message));
+    // Keep the queue usable even if an unexpected error escapes processChunk.
+    this.chunkQueue = queued.catch((error) => {
+      logger.error({ error }, "[RECEIVER] Unexpected chunk processing failure");
+      this.errorCallback?.(error instanceof Error ? error : String(error));
+    });
+    return queued;
+  }
+
+  private async processChunk(message: PeerMessage<ChunkPayload>): Promise<void> {
     if (this.status === "cancelled" || this.status === "complete") return;
 
     const { chunkIndex, data, offset } = message.payload;
