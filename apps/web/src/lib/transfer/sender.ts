@@ -191,8 +191,9 @@ export class FileSender {
 
       // Sanity check
       if (this.totalChunks <= 0) {
-        cleanup();
+        this.status = "complete";
         this.sendComplete().catch((err) => logger.error({ err }, "[SENDER] sendComplete failed"));
+        cleanup();
         resolve();
         return;
       }
@@ -261,20 +262,34 @@ export class FileSender {
 
           // Completion check: All file bytes processed AND all active chunks acked
           if (this.bytesProcessed >= this.file.size && this.activeChunks <= 0) {
-            cleanup();
-            transferMetrics.completeTransfer(this.transferId, true);
-            this.sendComplete()
-              .catch((err) => {
-                logger.error({ err }, "[SENDER] Final complete failed");
-              })
-              .finally(() => {
-                resolve();
-              });
+            this.onLog?.("[SYS] All chunks acknowledged. Waiting for receiver verification...");
+            this.sendComplete().catch((err) => {
+              logger.error({ err }, "[SENDER] Final complete failed");
+              cleanup();
+              reject(err instanceof Error ? err : new Error(String(err)));
+            });
             return;
           }
 
           // Pump more chunks if window allows
           this.pump();
+        } else if (message.type === "receiver-complete") {
+          const payload = message.payload as { bytesReceived?: number; fileSize?: number };
+          if (payload.bytesReceived !== this.file.size || payload.fileSize !== this.file.size) {
+            cleanup();
+            reject(new Error("Receiver byte-count verification failed"));
+            return;
+          }
+          this.status = "complete";
+          transferMetrics.completeTransfer(this.transferId, true);
+          cleanup();
+          resolve();
+        } else if (message.type === "transfer-error") {
+          const payload = message.payload as { error?: string; message?: string };
+          cleanup();
+          reject(
+            new Error(payload.error || payload.message || "Receiver reported transfer failure")
+          );
         } else if (message.type === "file-reject") {
           if (this.status === "cancelled" || this.status === "complete") return;
           logger.debug("[SENDER] Receiver rejected the file offer");
@@ -477,8 +492,7 @@ export class FileSender {
     };
 
     await this.safeSend(completeMessage);
-    this.status = "complete";
-    logger.debug("[SENDER] Transfer complete!");
+    logger.debug("[SENDER] Completion requested; awaiting receiver verification");
   }
 
   /**

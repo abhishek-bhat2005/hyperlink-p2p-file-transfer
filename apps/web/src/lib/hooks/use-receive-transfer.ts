@@ -352,7 +352,8 @@ export function useReceiveTransfer({ user, onData, onLog }: UseReceiveTransferOp
             } else if (
               message.type === "transfer-cancel" ||
               message.type === "transfer-pause" ||
-              message.type === "transfer-resume"
+              message.type === "transfer-resume" ||
+              message.type === "transfer-complete"
             ) {
               if (message.type === "transfer-cancel" && !fileReceiverRef.current) {
                 setPendingOffer(null);

@@ -302,6 +302,14 @@ describe("FileSender", () => {
         timestamp: Date.now(),
       });
 
+      // Sender completes only after receiver verifies the assembled byte count.
+      conn._emit("data", {
+        type: "receiver-complete",
+        transferId: "mock-transfer-id",
+        payload: { bytesReceived: 64, fileSize: 64 },
+        timestamp: Date.now(),
+      });
+
       await transferPromise;
 
       expect(sender.getStatus()).toBe("complete");

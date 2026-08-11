@@ -37,6 +37,7 @@ export class FileReceiver {
   private receivedChunkIndices = new Set<number>();
   private writableStream?: FileSystemWritableFileStream;
   private fileHandle?: FileSystemFileHandle;
+  private isAssembling = false;
   // PeerJS emits data events in order, but async decrypt/IDB writes can finish out
   // of order. Keep processing serialized so resumeFromChunk never skips an
   // earlier chunk that is still being written.
@@ -124,6 +125,7 @@ export class FileReceiver {
     this.bytesReceived = 0;
     this.resumeFromChunk = 0;
     this.receivedChunkIndices.clear();
+    this.isAssembling = false;
     this.chunkQueue = Promise.resolve();
 
     // Check IDB for previously received chunks (crash recovery)
@@ -357,6 +359,8 @@ export class FileReceiver {
    * Assemble file from IndexedDB chunks
    */
   private async assembleFile(): Promise<void> {
+    if (this.isAssembling || this.status === "complete") return;
+    this.isAssembling = true;
     try {
       logger.debug("[RECEIVER] assembleFile: Finalizing transfer...");
 
@@ -378,6 +382,17 @@ export class FileReceiver {
       }
 
       this.status = "complete";
+
+      // Completion is receiver-authoritative. The sender must not report
+      // success until the full file has been assembled here.
+      if (this.connection) {
+        this.connection.send({
+          type: "receiver-complete",
+          transferId: this.transferId,
+          payload: { bytesReceived: this.bytesReceived, fileSize: this.fileSize },
+          timestamp: Date.now(),
+        } satisfies PeerMessage);
+      }
 
       // Store the completed file blob to IndexedDB (Only for non-streaming)
       if (finalBlob) {
@@ -412,6 +427,9 @@ export class FileReceiver {
       logger.debug("[RECEIVER] Cleared chunks from IndexedDB");
     } catch (error) {
       logger.error({ error }, "Error assembling file");
+      this.errorCallback?.(error instanceof Error ? error : String(error));
+    } finally {
+      this.isAssembling = false;
     }
   }
 
@@ -490,6 +508,21 @@ export class FileReceiver {
     }
 
     if (message.type === "transfer-complete") {
+      if (this.bytesReceived < this.fileSize) {
+        logger.error(
+          { bytesReceived: this.bytesReceived, fileSize: this.fileSize },
+          "[RECEIVER] Sender completed before all bytes arrived"
+        );
+        this.connection?.send({
+          type: "transfer-error",
+          transferId: this.transferId,
+          payload: {
+            error: `Receiver has ${this.bytesReceived} of ${this.fileSize} bytes`,
+          },
+          timestamp: Date.now(),
+        } satisfies PeerMessage);
+        return true;
+      }
       logger.debug("[RECEIVER] Sender signaled transfer complete, assembling...");
       this.onLog?.("[SYS] Sender signaled transfer complete.");
       this.assembleFile().catch((err) => logger.error({ err }, "[RECEIVER] assembleFile failed"));

@@ -8,6 +8,7 @@ const VALID_MESSAGE_TYPES = new Set<PeerMessageType>([
   "chunk-ack",
   "chunk-probe", // C3 fix: used by sender for ACK resilience (was silently dropped)
   "transfer-complete",
+  "receiver-complete",
   "transfer-error",
   "transfer-cancel",
   "transfer-pause",

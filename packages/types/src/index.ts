@@ -82,6 +82,7 @@ export type PeerMessageType =
   | "chunk-ack"
   | "chunk-probe"
   | "transfer-complete"
+  | "receiver-complete"
   | "transfer-error"
   | "transfer-cancel"
   | "transfer-pause"
