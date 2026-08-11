@@ -525,7 +525,10 @@ export function useReceiveTransfer({ user, onData, onLog }: UseReceiveTransferOp
     });
 
     logger.debug("[RECEIVE PAGE] Calling handleOffer on receiver...");
-    receiver.handleOffer(message);
+    // Initialization scans IndexedDB and resets transfer counters. It must
+    // finish before file-accept is sent; otherwise chunks can arrive first and
+    // then be erased from the in-memory progress/accounting state.
+    await receiver.handleOffer(message);
 
     if (pw) {
       logger.debug("[RECEIVE PAGE] Processing password...");
