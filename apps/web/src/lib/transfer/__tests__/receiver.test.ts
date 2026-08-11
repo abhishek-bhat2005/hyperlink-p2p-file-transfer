@@ -254,6 +254,19 @@ describe("FileReceiver", () => {
       );
     });
 
+    it("stores late lower-index chunks instead of treating them as duplicates", async () => {
+      await receiver.handleChunk(createChunkMessage(1));
+      await receiver.handleChunk(createChunkMessage(0));
+
+      expect(mockAddChunk).toHaveBeenCalledTimes(2);
+      expect(conn.send).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "chunk-ack", payload: { chunkIndex: 1 } })
+      );
+      expect(conn.send).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "chunk-ack", payload: { chunkIndex: 0 } })
+      );
+    });
+
     it("calls progress callback on each chunk", async () => {
       const progressCb = vi.fn();
       receiver.onProgress(progressCb);

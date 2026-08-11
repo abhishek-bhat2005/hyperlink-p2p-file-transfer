@@ -34,6 +34,7 @@ export class FileReceiver {
   private errorCallback?: (error: Error | string) => void;
   private cleanupCallback?: (cleared: number, total: number) => void;
   private resumeFromChunk: number = 0; // For crash recovery
+  private receivedChunkIndices = new Set<number>();
   private writableStream?: FileSystemWritableFileStream;
   private fileHandle?: FileSystemFileHandle;
   // PeerJS emits data events in order, but async decrypt/IDB writes can finish out
@@ -122,6 +123,7 @@ export class FileReceiver {
     this.receivedChunks = 0;
     this.bytesReceived = 0;
     this.resumeFromChunk = 0;
+    this.receivedChunkIndices.clear();
     this.chunkQueue = Promise.resolve();
 
     // Check IDB for previously received chunks (crash recovery)
@@ -132,6 +134,9 @@ export class FileReceiver {
         this.receivedChunks = lastIndex + 1;
         this.bytesReceived = Math.min(this.receivedChunks * INITIAL_CHUNK_SIZE, this.fileSize);
         this.resumeFromChunk = lastIndex + 1;
+        for (let index = 0; index <= lastIndex; index++) {
+          this.receivedChunkIndices.add(index);
+        }
         logger.debug(
           {
             transferId: this.transferId,
@@ -197,11 +202,10 @@ export class FileReceiver {
     const { chunkIndex, data, offset } = message.payload;
     const isProbe = message.type === "chunk-probe";
 
-    // IDEMPOTENCY CHECK: If we already processed this chunk, just ACK and skip.
-    // This is crucial for Task 2 (ACK Resilience) so we don't do redundant IDB writes.
-    // Since we are mostly sequential (sliding window), index < resumeFromChunk is a solid indicator.
-    // For intermediate duplicates, we rely on the fact that we increment receivedChunks only for NEW ones.
-    if (chunkIndex < this.resumeFromChunk) {
+    // Chunks can arrive out of index order because the sender reads/encrypts them
+    // concurrently. Only an exact index match is a duplicate; a lower index may
+    // still be a missing chunk that arrived late.
+    if (this.receivedChunkIndices.has(chunkIndex)) {
       if (isProbe) {
         logger.debug(
           { chunkIndex },
@@ -281,9 +285,10 @@ export class FileReceiver {
 
     this.receivedChunks++;
     this.bytesReceived += chunkData.byteLength; // Track decrypted size
-    // For live idempotency (Task 2), keep resumeFromChunk updated as the progress pointer
-    if (chunkIndex >= this.resumeFromChunk) {
-      this.resumeFromChunk = chunkIndex + 1;
+    this.receivedChunkIndices.add(chunkIndex);
+    // Resume only after the highest contiguous chunk, never after a gap.
+    while (this.receivedChunkIndices.has(this.resumeFromChunk)) {
+      this.resumeFromChunk++;
     }
 
     // Log progress every 10%
