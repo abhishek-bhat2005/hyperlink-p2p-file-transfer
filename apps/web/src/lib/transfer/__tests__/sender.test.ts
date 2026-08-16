@@ -317,6 +317,61 @@ describe("FileSender", () => {
       expect(conn.send).toHaveBeenCalled();
     });
 
+    it("sends every byte of a realistic file below 10 MB before completing", async () => {
+      const fileSize = Math.floor(2.14 * 1024 * 1024);
+      const file = createMockFile(fileSize, "small-photo.jpg");
+      const sender = new FileSender(file, conn as any);
+      let receivedBytes = 0;
+      const receivedRanges: Array<{ start: number; end: number }> = [];
+
+      conn.send.mockImplementation((message: any) => {
+        if (message.type === "chunk") {
+          const start = message.payload.offset as number;
+          const end = start + (message.payload.data as ArrayBuffer).byteLength;
+          receivedBytes += end - start;
+          receivedRanges.push({ start, end });
+          queueMicrotask(() => {
+            conn._emit("data", {
+              type: "chunk-ack",
+              transferId: "mock-transfer-id",
+              payload: { chunkIndex: message.payload.chunkIndex },
+              timestamp: Date.now(),
+            });
+          });
+        } else if (message.type === "transfer-complete") {
+          queueMicrotask(() => {
+            conn._emit("data", {
+              type: "receiver-complete",
+              transferId: "mock-transfer-id",
+              payload: { bytesReceived: receivedBytes, fileSize },
+              timestamp: Date.now(),
+            });
+          });
+        }
+      });
+
+      const transferPromise = sender.startTransfer();
+      conn._emit("data", {
+        type: "file-accept",
+        transferId: "mock-transfer-id",
+        payload: null,
+        timestamp: Date.now(),
+      });
+
+      await transferPromise;
+
+      receivedRanges.sort((left, right) => left.start - right.start);
+      expect(receivedBytes).toBe(fileSize);
+      expect(receivedRanges[0]?.start).toBe(0);
+      expect(receivedRanges.at(-1)?.end).toBe(fileSize);
+      expect(
+        receivedRanges.every(
+          (range, index) => index === 0 || receivedRanges[index - 1].end === range.start
+        )
+      ).toBe(true);
+      expect(sender.getStatus()).toBe("complete");
+    });
+
     it("rejects and calls onReject when receiver sends file-reject", async () => {
       const file = createMockFile(64);
       const sender = new FileSender(file, conn as any);
