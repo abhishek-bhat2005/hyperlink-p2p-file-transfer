@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { turnCredentialsLimiter } from "@/lib/middleware/rate-limit";
+import { logger } from "@repo/utils";
 
 /**
  * FINDING-015: TURN credentials served server-side so they never ship in the
@@ -26,6 +27,36 @@ export async function GET(request: Request) {
     // Always include at least one STUN server (reduced from 2)
     { urls: "stun:stun.l.google.com:19302" },
   ];
+
+  const meteredAppName = process.env.METERED_APP_NAME;
+  const meteredApiKey = process.env.METERED_TURN_API_KEY;
+  if (meteredAppName && meteredApiKey) {
+    try {
+      if (!/^[a-z0-9_-]+$/i.test(meteredAppName)) {
+        throw new Error("Invalid METERED_APP_NAME");
+      }
+      const meteredUrl = new URL(`https://${meteredAppName}.metered.live/api/v1/turn/credentials`);
+      meteredUrl.searchParams.set("apiKey", meteredApiKey);
+      const meteredResponse = await fetch(meteredUrl, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!meteredResponse.ok) {
+        throw new Error(`Metered returned ${meteredResponse.status}`);
+      }
+      const meteredServers = (await meteredResponse.json()) as unknown;
+      if (!Array.isArray(meteredServers) || meteredServers.length === 0) {
+        throw new Error("Metered returned no ICE servers");
+      }
+
+      return NextResponse.json(
+        { iceServers: meteredServers as RTCIceServer[], turnSource: "metered" },
+        { headers: { "Cache-Control": "private, max-age=60", ...headers } }
+      );
+    } catch (error) {
+      logger.error({ error }, "[TURN] Failed to fetch Metered credentials");
+    }
+  }
 
   // Task #4: Support multiple TURN providers for redundancy
   // Prefer server-only variables. The NEXT_PUBLIC names are retained as a

@@ -13,7 +13,7 @@ export async function getIceServers(): Promise<RTCIceServer[]> {
     if (!res.ok) throw new Error(`turn-credentials: ${res.status}`);
     const { iceServers, turnSource } = (await res.json()) as {
       iceServers: RTCIceServer[];
-      turnSource?: "configured" | "public-fallback";
+      turnSource?: "metered" | "configured" | "public-fallback";
     };
     if (turnSource === "public-fallback") {
       logger.warn(

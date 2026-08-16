@@ -72,6 +72,8 @@ describe("GET /api/turn-credentials", () => {
   beforeEach(() => {
     vi.resetModules();
     process.env = { ...originalEnv };
+    delete process.env.METERED_APP_NAME;
+    delete process.env.METERED_TURN_API_KEY;
   });
 
   afterEach(() => {
@@ -119,6 +121,33 @@ describe("GET /api/turn-credentials", () => {
     expect(privateTurn.username).toBe("user");
     expect(privateTurn.credential).toBe("secret");
     expect(body.turnSource).toBe("configured");
+  });
+
+  it("fetches dynamic TURN credentials from Metered server-side", async () => {
+    process.env.METERED_APP_NAME = "hyperlink-p2p";
+    process.env.METERED_TURN_API_KEY = "private-api-key";
+    const meteredServers = [
+      { urls: "stun:stun.relay.metered.ca:80" },
+      {
+        urls: "turn:global.relay.metered.ca:443?transport=tcp",
+        username: "metered-user",
+        credential: "metered-password",
+      },
+    ];
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify(meteredServers), { status: 200 }));
+
+    const { GET } = await import("../turn-credentials/route");
+    const response = await GET(new Request("http://localhost/api/turn-credentials"));
+    const body = await response.json();
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const requestedUrl = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(requestedUrl.origin).toBe("https://hyperlink-p2p.metered.live");
+    expect(requestedUrl.pathname).toBe("/api/v1/turn/credentials");
+    expect(requestedUrl.searchParams.get("apiKey")).toBe("private-api-key");
+    expect(body).toEqual({ iceServers: meteredServers, turnSource: "metered" });
   });
 
   it("supports legacy NEXT_PUBLIC_TURN variables from existing deployments", async () => {
