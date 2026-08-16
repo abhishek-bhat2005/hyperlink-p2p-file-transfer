@@ -28,16 +28,18 @@ export async function GET(request: Request) {
   ];
 
   // Task #4: Support multiple TURN providers for redundancy
+  // Prefer server-only variables. The NEXT_PUBLIC names are retained as a
+  // compatibility bridge for deployments configured from the older env docs.
   const turnProviders = [
     {
-      url: process.env.TURN_URL,
-      user: process.env.TURN_USERNAME,
-      pass: process.env.TURN_CREDENTIAL,
+      url: process.env.TURN_URL ?? process.env.NEXT_PUBLIC_TURN_URL,
+      user: process.env.TURN_USERNAME ?? process.env.NEXT_PUBLIC_TURN_USERNAME,
+      pass: process.env.TURN_CREDENTIAL ?? process.env.NEXT_PUBLIC_TURN_CREDENTIAL,
     },
     {
-      url: process.env.TURN_URL_2,
-      user: process.env.TURN_USERNAME_2,
-      pass: process.env.TURN_CREDENTIAL_2,
+      url: process.env.TURN_URL_2 ?? process.env.NEXT_PUBLIC_TURN_URL_2,
+      user: process.env.TURN_USERNAME_2 ?? process.env.NEXT_PUBLIC_TURN_USERNAME_2,
+      pass: process.env.TURN_CREDENTIAL_2 ?? process.env.NEXT_PUBLIC_TURN_CREDENTIAL_2,
     },
   ].filter((p) => p.url);
 
@@ -73,7 +75,7 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json(
-    { iceServers },
+    { iceServers, turnSource: turnProviders.length > 0 ? "configured" : "public-fallback" },
     {
       headers: {
         // Cache for 1 minute — TURN credentials are static; short TTL

@@ -1,4 +1,5 @@
 import type { PeerConfig } from "@repo/types";
+import { logger } from "@repo/utils";
 
 /**
  * FINDING-015: ICE servers are now fetched server-side via /api/turn-credentials
@@ -10,7 +11,15 @@ export async function getIceServers(): Promise<RTCIceServer[]> {
   try {
     const res = await fetch("/api/turn-credentials");
     if (!res.ok) throw new Error(`turn-credentials: ${res.status}`);
-    const { iceServers } = (await res.json()) as { iceServers: RTCIceServer[] };
+    const { iceServers, turnSource } = (await res.json()) as {
+      iceServers: RTCIceServer[];
+      turnSource?: "configured" | "public-fallback";
+    };
+    if (turnSource === "public-fallback") {
+      logger.warn(
+        "[ICE] No private TURN server is configured; restrictive networks may not connect."
+      );
+    }
     return iceServers;
   } catch {
     // Graceful fallback: STUN only (no TURN) so basic P2P still works

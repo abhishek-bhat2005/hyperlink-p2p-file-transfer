@@ -80,6 +80,7 @@ describe("GET /api/turn-credentials", () => {
 
   it("returns STUN servers and public TURN fallback when no TURN_URL env", async () => {
     delete process.env.TURN_URL;
+    delete process.env.NEXT_PUBLIC_TURN_URL;
     const { GET } = await import("../turn-credentials/route");
     const response = await GET(new Request("http://localhost/api/turn-credentials"));
     const body = await response.json();
@@ -99,6 +100,7 @@ describe("GET /api/turn-credentials", () => {
       typeof s.urls === "string" ? s.urls.startsWith("turn:") : false
     );
     expect(turnServers.length).toBeGreaterThanOrEqual(1);
+    expect(body.turnSource).toBe("public-fallback");
   });
 
   it("uses private TURN server when TURN_URL env is set", async () => {
@@ -116,6 +118,29 @@ describe("GET /api/turn-credentials", () => {
     expect(privateTurn).toBeDefined();
     expect(privateTurn.username).toBe("user");
     expect(privateTurn.credential).toBe("secret");
+    expect(body.turnSource).toBe("configured");
+  });
+
+  it("supports legacy NEXT_PUBLIC_TURN variables from existing deployments", async () => {
+    delete process.env.TURN_URL;
+    delete process.env.TURN_USERNAME;
+    delete process.env.TURN_CREDENTIAL;
+    process.env.NEXT_PUBLIC_TURN_URL = "turn:legacy.example.com:3478";
+    process.env.NEXT_PUBLIC_TURN_USERNAME = "legacy-user";
+    process.env.NEXT_PUBLIC_TURN_CREDENTIAL = "legacy-secret";
+
+    const { GET } = await import("../turn-credentials/route");
+    const response = await GET(new Request("http://localhost/api/turn-credentials"));
+    const body = await response.json();
+
+    const legacyTurn = body.iceServers.find(
+      (server: RTCIceServer) => server.urls === "turn:legacy.example.com:3478"
+    );
+    expect(legacyTurn).toMatchObject({
+      username: "legacy-user",
+      credential: "legacy-secret",
+    });
+    expect(body.turnSource).toBe("configured");
   });
 
   it("Task #4: supports multiple TURN providers", async () => {
